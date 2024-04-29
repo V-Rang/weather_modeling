@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import os
 
 model_loaded = SegNet(in_len = 6, out_len = 6)
-model_path = "models/model_20240429_103645_4"
+model_path = "models/model_20240429_130735_73"
 figures_path = f"Figures/{model_path[7:]}/" 
 
 if not os.path.exists(figures_path):
@@ -85,7 +85,7 @@ lons = test_dataset.data['longitude'].values #240
 
 
 #series of images:
-for i in range(0,30,5):
+for i in range(0,30):
     fig, axs = plt.subplots(1, 2, figsize=(15, 5), subplot_kw={'projection': ccrs.PlateCarree()})
     # Plot for truth values
     axs[0].coastlines()
@@ -100,6 +100,7 @@ for i in range(0,30,5):
     plt.colorbar(sc2, ax=axs[1], label='10m_u_component_of_wind')
     axs[1].set_title("Prediction value")
     plt.tight_layout()
-    fig.suptitle(f"True value and Prediction for {test_dataset.data[i+6]['time'].values}")
+    fig.suptitle(f"True value and Prediction for {test_dataset.data[i+6]['time'].values}, prediction = {i}")
     # plt.show()
     plt.savefig(f"{figures_path}/True value and Prediction for {test_dataset.data[i+6]['time'].values}_{model_path[7:]}.png")
+    plt.close()
