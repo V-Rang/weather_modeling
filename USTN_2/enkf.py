@@ -3,6 +3,9 @@ from model import STN
 from dataloader import load_data
 import torch
 from tqdm import tqdm
+import scipy.io as sio
+import numpy as np
+from utils import normalize_values
 
 model = STN(sampling_size=(16,8))
 obs_path = f"gs://weatherbench2/datasets/era5/1959-2022-6h-64x32_equiangular_with_poles_conservative.zarr"
@@ -13,28 +16,27 @@ val_dataset = data_sets['val_dataset']
 test_dataset = data_sets['test_dataset'] 
 
 # %%
-#need mean and stddev of training data
 import numpy as np
-train_data = train_dataset.data.to_numpy().flatten()
-M = np.mean(train_data)
-sdev = np.std(train_data)
 
 # %% need X_test not X_test_norm
 import xarray as xr
+import copy
 obs_path = f"gs://weatherbench2/datasets/era5/1959-2022-6h-64x32_equiangular_with_poles_conservative.zarr"
 data = xr.open_zarr(obs_path)
 data_u10 = data['10m_u_component_of_wind']
 testing_period = ["2020-02-11T00:00:00.000000000","2020-02-20T23:00:00.000000000"]
-X_test = data_u10.sel(time = slice(*testing_period)).to_numpy()
+X_test = data_u10.sel(time = slice(*testing_period))
+X_test = normalize_values(X_test).to_numpy()
+X_test_true = copy.deepcopy(X_test)
 
-X_test = X_test.reshape(X_test.shape[0], X_test.shape[1] * X_test.shape[2])
-X_test_true = X_test
-X_test = (X_test - M)/sdev
-X_test_true = (X_test_true - M)/sdev
+X_test_obs = X_test.reshape(X_test.shape[0], X_test.shape[1] * X_test.shape[2])
+
+# X_test = X_test
+# X_test_true = X_test_true
 # %% Add noise to the truth to mimic observations
-noise = 1
-for k in range(1,np.size(X_test,0)):
-    X_test[k-1,:]= X_test[k-1,:]+np.random.normal(0, noise, 2048)
+noise = 1e-3
+for k in range(1,np.size(X_test_obs,0)):
+    X_test_obs[k-1,:]= X_test_obs[k-1,:]+np.random.normal(0, noise, 2048)
 
 def ENKF(x, n, P ,Q, R, obs, model, u_ensemble):
     obs=np.reshape(obs,[n,1]) 
@@ -74,7 +76,7 @@ def ENKF(x, n, P ,Q, R, obs, model, u_ensemble):
 
 # %%
 model = STN((16,8))
-model_path = "models/model_20240507_012704_4"
+model_path = "models/model_20240507_013640_99"
 
 model.load_state_dict(torch.load(model_path))
 
@@ -97,7 +99,7 @@ for t in range(0, time, dt):
     
     for kk in range(0,dt-1):
         if (kk==0):   
-            u=X_test[t+kk,:].reshape([1, 1, 64, 32])
+            u=X_test_obs[t+kk,:].reshape([1, 1, 64, 32])
             u=model(torch.tensor(u.reshape([1,1,64,32]), dtype=torch.float32)  )
             u = u.detach().numpy()
         else :
@@ -106,17 +108,14 @@ for t in range(0, time, dt):
         pred[count,:,:,0]=np.reshape(u,[64,32])
         count=count+1
     x=u   
-    x, P = ENKF(x, 2048, P, Q, R, X_test[t+dt,:], model,u_ensemble)
+    x, P = ENKF(x, 2048, P, Q, R, X_test_obs[t+dt-1,:], model,u_ensemble)
 
     print('output shape of ENKF', np.shape(x))
     
     pred[count,:,:,0]=np.reshape(x,[64,32])
     count=count+1
 
-# sio.savemat('DA_every24HR_lead1200_everytime_noise_' + str(noise)+ '.mat',dict([('prediction',pred),('truth',np.reshape(X_test_true,[np.size(X_test,0),240,121,1])),('noisy_obs',np.reshape(X_test,[np.size(X_test,0),240,121,1]))]))
-sio.savemat('DA_every10HR_lead3_everytime_noise_' + str(noise)+ '.mat',dict([('prediction',pred),('truth',np.reshape(X_test_true,[np.size(X_test,0),64,32,1])),('noisy_obs',np.reshape(X_test,[np.size(X_test,0), 64, 32,1]))]))
 
-print('Done writing file')
+sio.savemat('DA_every10HR_lead3_everytime_noise_' + str(noise)+ '.mat',dict([('prediction',pred),('truth',np.reshape(X_test_true,[np.size(X_test_true,0),64,32,1])),('noisy_obs',np.reshape(X_test_obs,[np.size(X_test_true,0), 64, 32,1]))]))
 
 
-# %%
