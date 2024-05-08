@@ -104,3 +104,4 @@ for i in range(0,30):
     # plt.show()
     plt.savefig(f"{figures_path}/True value and Prediction for {test_dataset.data[i+6]['time'].values}_{model_path[7:]}.png")
     plt.close()
+    

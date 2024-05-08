@@ -37,11 +37,4 @@ def load_data(path):
     
     return datasets, dataloaders
 
-# obs_path = f"gs://weatherbench2/datasets/era5/1959-2022-6h-240x121_equiangular_with_poles_conservative.zarr"
-# data = xr.open_zarr(obs_path)
-
-# #say only work with u10
-# data_u10 = data['10m_u_component_of_wind']
-
-#training window
 
