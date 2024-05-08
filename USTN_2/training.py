@@ -38,7 +38,7 @@ from datetime import datetime
 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 epoch_number = 0
 
-EPOCHS = 5
+EPOCHS = 100
 
 best_vloss = 1_000_000.
 
